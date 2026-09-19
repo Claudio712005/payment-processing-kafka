@@ -1,10 +1,10 @@
 package com.clau.payment.producer.config.kafka
 
+import org.apache.avro.specific.SpecificRecord
 import org.apache.kafka.clients.producer.ProducerConfig
-import org.apache.kafka.common.serialization.Serializer
-import org.apache.kafka.common.serialization.StringSerializer
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty
+import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.kafka.core.DefaultKafkaProducerFactory
@@ -14,22 +14,21 @@ import org.springframework.kafka.core.ProducerFactory
 @Configuration
 @ConditionalOnBooleanProperty("kafka.producer.enabled")
 class KafkaProducerConfig(
-    @Value("\${spring.kafka.bootstrap-servers}") private val bootstrapServers: String
+    private val kafkaProperties: KafkaProperties,
+    private val connectionDetails: KafkaConnectionDetails,
 ) {
 
     @Bean
-    fun producerFactory(): ProducerFactory<String, Any> {
-        val config = mapOf(
-            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG to bootstrapServers,
-            ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG to StringSerializer::class.java,
-            ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG to Serializer::class.java,
-            ProducerConfig.ACKS_CONFIG to "all",
-            ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG to true,
-            ProducerConfig.RETRIES_CONFIG to 3
-        )
-        return DefaultKafkaProducerFactory(config)
+    fun producerFactory(): ProducerFactory<String, SpecificRecord> {
+        val props = kafkaProperties.buildProducerProperties()
+        // Endereço vem do KafkaConnectionDetails (respeita Testcontainers @ServiceConnection,
+        // env vars e yaml de forma uniforme) — NÃO do yaml lido diretamente.
+        props[ProducerConfig.BOOTSTRAP_SERVERS_CONFIG] = connectionDetails.bootstrapServers
+        return DefaultKafkaProducerFactory(props)
     }
 
     @Bean
-    fun kafkaTemplate(): KafkaTemplate<String, Any> = KafkaTemplate(producerFactory())
+    fun kafkaTemplate(
+        producerFactory: ProducerFactory<String, SpecificRecord>
+    ): KafkaTemplate<String, SpecificRecord> = KafkaTemplate(producerFactory)
 }

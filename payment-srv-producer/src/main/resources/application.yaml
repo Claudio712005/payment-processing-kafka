@@ -2,6 +2,22 @@ spring:
   application:
     name: payment-srv-producer
   kafka:
-    producer:
-      enabled: false
     bootstrap-servers: ${KAFKA_SERVER:localhost:9092}
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+        auto.register.schemas: true
+
+kafka:
+  producer:
+    enabled: false
+
+# Config de domínio do producer.
+payment:
+  events:
+    topic: payment-events
